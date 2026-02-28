@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 // ─── API Configuration ──────────────────────────────────────
 // Change this URL when you set up a permanent Cloudflare Tunnel
-const API_BASE = "https://cape-cultural-per-specially.trycloudflare.com";
+const API_BASE = "https://models-devices-beaver-content.trycloudflare.com";
 const API_HEADERS = { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_API_KEY };
 
 // ─── Helpers ─────────────────────────────────────────────────
