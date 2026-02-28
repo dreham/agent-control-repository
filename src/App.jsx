@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 
 // ─── API Configuration ──────────────────────────────────────
 // Change this URL when you set up a permanent Cloudflare Tunnel
-const API_BASE = "https://glory-earn-slope-emissions.trycloudflare.com";
+const API_BASE = "https://cape-cultural-per-specially.trycloudflare.com";
+const API_HEADERS = { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_API_KEY };
 
 // ─── Helpers ─────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -148,10 +149,16 @@ function AgentCard({ agent, onView }) {
 }
 
 // ─── Agent Detail Panel ──────────────────────────────────────
-function AgentDetail({ agent, onClose, onAnswer }) {
+function AgentDetail({ agent, onClose, onAnswer, onAction }) {
   const [answer, setAnswer] = useState("");
   const [activeTab, setActiveTab] = useState("activity");
   const [sending, setSending] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null);
+  const [showTaskInput, setShowTaskInput] = useState(false);
+  const [showMsgInput, setShowMsgInput] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskSummary, setTaskSummary] = useState("");
+  const [msgText, setMsgText] = useState("");
 
   if (!agent) return null;
 
@@ -168,6 +175,19 @@ function AgentDetail({ agent, onClose, onAnswer }) {
     setAnswer("");
     setSending(false);
   };
+
+  const handleAction = async (action, body) => {
+    setActionLoading(action);
+    try {
+      await onAction(agent.id, action, body);
+      if (action === "task") { setShowTaskInput(false); setTaskTitle(""); setTaskSummary(""); }
+      if (action === "message") { setShowMsgInput(false); setMsgText(""); }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const isPaused = agent.status === "paused";
 
   return (
     <div style={{
@@ -346,17 +366,139 @@ function AgentDetail({ agent, onClose, onAnswer }) {
           </div>
         )}
 
+        {showTaskInput && (
+          <div style={{
+            background: "rgba(34,197,94,0.06)", borderRadius: 12, padding: 16, marginTop: 16,
+            border: "1px solid rgba(34,197,94,0.15)",
+          }}>
+            <div style={{ fontSize: 11, color: "#4ade80", textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, marginBottom: 10 }}>
+              New Task
+            </div>
+            <input
+              value={taskTitle}
+              onChange={e => setTaskTitle(e.target.value)}
+              placeholder="Task title…"
+              style={{
+                width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 8, padding: "8px 12px", color: "#e0e4f5", fontSize: 13,
+                outline: "none", fontFamily: "'DM Sans', sans-serif", marginBottom: 8,
+              }}
+            />
+            <input
+              value={taskSummary}
+              onChange={e => setTaskSummary(e.target.value)}
+              placeholder="Summary / instructions…"
+              onKeyDown={e => e.key === "Enter" && taskTitle.trim() && taskSummary.trim() && handleAction("task", { title: taskTitle, summary: taskSummary })}
+              style={{
+                width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 8, padding: "8px 12px", color: "#e0e4f5", fontSize: 13,
+                outline: "none", fontFamily: "'DM Sans', sans-serif", marginBottom: 10,
+              }}
+            />
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setShowTaskInput(false)} style={{
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 8, padding: "6px 14px", color: "#8b8fa3", fontSize: 12,
+                fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+              }}>Cancel</button>
+              <button
+                onClick={() => handleAction("task", { title: taskTitle, summary: taskSummary })}
+                disabled={actionLoading === "task" || !taskTitle.trim() || !taskSummary.trim()}
+                style={{
+                  background: actionLoading === "task" ? "#2d7a4e" : "#22c55e", border: "none", borderRadius: 8,
+                  padding: "6px 14px", color: "#0f1019", fontSize: 12, fontWeight: 700,
+                  cursor: actionLoading === "task" ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif",
+                }}
+              >{actionLoading === "task" ? "Sending…" : "Assign"}</button>
+            </div>
+          </div>
+        )}
+
+        {showMsgInput && (
+          <div style={{
+            background: "rgba(59,130,246,0.06)", borderRadius: 12, padding: 16, marginTop: 16,
+            border: "1px solid rgba(59,130,246,0.15)",
+          }}>
+            <div style={{ fontSize: 11, color: "#60a5fa", textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, marginBottom: 10 }}>
+              Send Message
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={msgText}
+                onChange={e => setMsgText(e.target.value)}
+                placeholder="Type a message or command…"
+                onKeyDown={e => e.key === "Enter" && msgText.trim() && handleAction("message", { message: msgText })}
+                style={{
+                  flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8, padding: "8px 12px", color: "#e0e4f5", fontSize: 13,
+                  outline: "none", fontFamily: "'DM Sans', sans-serif",
+                }}
+              />
+              <button
+                onClick={() => handleAction("message", { message: msgText })}
+                disabled={actionLoading === "message" || !msgText.trim()}
+                style={{
+                  background: actionLoading === "message" ? "#3468a8" : "#3b82f6", border: "none", borderRadius: 8,
+                  padding: "8px 16px", color: "#fff", fontSize: 12, fontWeight: 700,
+                  cursor: actionLoading === "message" ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif",
+                }}
+              >{actionLoading === "message" ? "…" : "Send"}</button>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 8, marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          {["Message", "Pause", "Stop"].map(action => (
-            <button key={action} style={{
-              flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)",
-              background: action === "Stop" ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.04)",
-              color: action === "Stop" ? "#f87171" : "#8b8fa3",
-              fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-            }}>
-              {action}
-            </button>
-          ))}
+          <button
+            onClick={() => { setShowTaskInput(!showTaskInput); setShowMsgInput(false); }}
+            disabled={actionLoading !== null}
+            style={{
+              flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid rgba(34,197,94,0.2)",
+              background: showTaskInput ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.06)",
+              color: "#4ade80", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+            }}
+          >New Task</button>
+          <button
+            onClick={() => { setShowMsgInput(!showMsgInput); setShowTaskInput(false); }}
+            disabled={actionLoading !== null}
+            style={{
+              flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid rgba(59,130,246,0.2)",
+              background: showMsgInput ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.06)",
+              color: "#60a5fa", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+            }}
+          >Message</button>
+          {isPaused ? (
+            <button
+              onClick={() => handleAction("resume")}
+              disabled={actionLoading === "resume"}
+              style={{
+                flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid rgba(34,197,94,0.2)",
+                background: "rgba(34,197,94,0.08)",
+                color: actionLoading === "resume" ? "#5a8a6e" : "#4ade80",
+                fontSize: 13, fontWeight: 600, cursor: actionLoading === "resume" ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif",
+              }}
+            >{actionLoading === "resume" ? "Resuming…" : "Resume"}</button>
+          ) : (
+            <button
+              onClick={() => handleAction("pause")}
+              disabled={actionLoading === "pause"}
+              style={{
+                flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.04)",
+                color: actionLoading === "pause" ? "#5a5c6e" : "#8b8fa3",
+                fontSize: 13, fontWeight: 600, cursor: actionLoading === "pause" ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif",
+              }}
+            >{actionLoading === "pause" ? "Pausing…" : "Pause"}</button>
+          )}
+          <button
+            onClick={() => handleAction("stop")}
+            disabled={actionLoading === "stop"}
+            style={{
+              flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid rgba(239,68,68,0.2)",
+              background: "rgba(239,68,68,0.1)",
+              color: actionLoading === "stop" ? "#8a4a4a" : "#f87171",
+              fontSize: 13, fontWeight: 600, cursor: actionLoading === "stop" ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif",
+            }}
+          >{actionLoading === "stop" ? "Stopping…" : "Stop"}</button>
         </div>
       </div>
     </div>
@@ -434,7 +576,7 @@ export default function AgentControlCenter() {
 
   const fetchAgents = async () => {
     try {
-      const res = await fetch(`${API_BASE}/agents`);
+      const res = await fetch(`${API_BASE}/agents`, { headers: API_HEADERS });
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
       setAgents(data);
@@ -462,12 +604,26 @@ export default function AgentControlCenter() {
     try {
       await fetch(`${API_BASE}/agents/${agentId}/answer`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: API_HEADERS,
         body: JSON.stringify({ questionId, answer }),
       });
       await fetchAgents();
     } catch (err) {
       console.error("Failed to send answer:", err);
+    }
+  };
+
+  const handleAgentAction = async (agentId, action, body) => {
+    try {
+      const res = await fetch(`${API_BASE}/agents/${agentId}/${action}`, {
+        method: "POST",
+        headers: API_HEADERS,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      await fetchAgents();
+    } catch (err) {
+      console.error(`Failed to ${action} agent:`, err);
     }
   };
 
@@ -646,7 +802,7 @@ export default function AgentControlCenter() {
       </div>
 
       {selectedAgent && (
-        <AgentDetail agent={selectedAgent} onClose={() => setSelectedAgent(null)} onAnswer={handleAnswer} />
+        <AgentDetail agent={selectedAgent} onClose={() => setSelectedAgent(null)} onAnswer={handleAnswer} onAction={handleAgentAction} />
       )}
     </div>
   );
